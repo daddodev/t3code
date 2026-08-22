@@ -18,6 +18,16 @@ const decodeServerSettings = Schema.decodeUnknownSync(ServerSettings);
 const decodeServerSettingsPatch = Schema.decodeUnknownSync(ServerSettingsPatch);
 const encodeServerSettings = Schema.encodeSync(ServerSettings);
 
+describe("ClientSettings browser completion notifications", () => {
+  it("defaults notifications off and accepts an explicit preference", () => {
+    expect(decodeClientSettings({}).browserCompletionNotifications).toBe(false);
+    expect(
+      decodeClientSettingsPatch({ browserCompletionNotifications: true })
+        .browserCompletionNotifications,
+    ).toBe(true);
+  });
+});
+
 describe("ClientSettings word wrap", () => {
   it("defaults word wrap on", () => {
     expect(decodeClientSettings({}).wordWrap).toBe(true);

@@ -530,6 +530,10 @@ export function useSettingsRestore(onRestored?: () => void) {
       ...(settings.confirmQuit !== DEFAULT_UNIFIED_SETTINGS.confirmQuit
         ? ["Quit confirmation"]
         : []),
+      ...(settings.browserCompletionNotifications !==
+      DEFAULT_UNIFIED_SETTINGS.browserCompletionNotifications
+        ? ["Browser completion notifications"]
+        : []),
       ...(isTextGenerationModelDirty ? ["Text generation model"] : []),
       ...getChangedBrowserSettingLabels(settings),
       ...(settings.enableAgentBrowserAccess !== DEFAULT_UNIFIED_SETTINGS.enableAgentBrowserAccess
@@ -543,6 +547,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.browserDefaultZoomFactor,
       settings.browserDefaultAppearance,
       settings.browserAutoShowFloatingPreview,
+      settings.browserCompletionNotifications,
       settings.enableAgentBrowserAccess,
       settings.confirmQuit,
       settings.confirmThreadArchive,
@@ -659,6 +664,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       confirmThreadArchive: DEFAULT_UNIFIED_SETTINGS.confirmThreadArchive,
       confirmThreadDelete: DEFAULT_UNIFIED_SETTINGS.confirmThreadDelete,
       confirmQuit: DEFAULT_UNIFIED_SETTINGS.confirmQuit,
+      browserCompletionNotifications: DEFAULT_UNIFIED_SETTINGS.browserCompletionNotifications,
       textGenerationModelSelection: DEFAULT_UNIFIED_SETTINGS.textGenerationModelSelection,
       fontFamilySans: DEFAULT_UNIFIED_SETTINGS.fontFamilySans,
       fontFamilyComposer: DEFAULT_UNIFIED_SETTINGS.fontFamilyComposer,
@@ -1857,6 +1863,22 @@ export function GeneralSettingsPanel() {
     settings.textGenerationModelSelection ?? null,
     DEFAULT_UNIFIED_SETTINGS.textGenerationModelSelection ?? null,
   );
+  const browserNotificationsSupported = typeof Notification !== "undefined";
+  const browserNotificationPermission = browserNotificationsSupported
+    ? Notification.permission
+    : "denied";
+  const updateBrowserCompletionNotifications = async (enabled: boolean) => {
+    if (!enabled) {
+      updateSettings({ browserCompletionNotifications: false });
+      return;
+    }
+    if (!browserNotificationsSupported) return;
+    const permission =
+      browserNotificationPermission === "default"
+        ? await Notification.requestPermission()
+        : browserNotificationPermission;
+    updateSettings({ browserCompletionNotifications: permission === "granted" });
+  };
   const resolvedBackgroundActivity = resolveServerBackgroundActivitySettings(settings);
   const activeBackgroundActivityProfile = resolvedBackgroundActivity.profile;
   const backgroundActivityProfileOption = resolveBackgroundActivityProfileOption(settings);
@@ -1874,6 +1896,36 @@ export function GeneralSettingsPanel() {
   return (
     <SettingsPageContainer>
       <SettingsSection title="General">
+        <SettingsRow
+          {...searchableSetting("browser-completion-notifications")}
+          title="Browser completion notifications"
+          description={
+            !browserNotificationsSupported
+              ? "This browser does not support system notifications."
+              : browserNotificationPermission === "denied"
+                ? "Notifications are blocked in your browser or system settings."
+                : "Show a system notification when an agent finishes while this tab is in the background."
+          }
+          resetAction={
+            settings.browserCompletionNotifications !==
+            DEFAULT_UNIFIED_SETTINGS.browserCompletionNotifications ? (
+              <SettingResetButton
+                label="browser completion notifications"
+                onClick={() => updateSettings({ browserCompletionNotifications: false })}
+              />
+            ) : null
+          }
+          control={
+            <Switch
+              checked={settings.browserCompletionNotifications}
+              disabled={
+                !browserNotificationsSupported || browserNotificationPermission === "denied"
+              }
+              onCheckedChange={(enabled) => void updateBrowserCompletionNotifications(enabled)}
+              aria-label="Browser completion notifications"
+            />
+          }
+        />
         <SettingsRow
           {...searchableSetting("project-grouping")}
           description="Combine matching repositories across environments."
