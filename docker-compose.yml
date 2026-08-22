@@ -1,0 +1,17 @@
+services:
+  t3code:
+    build:
+      context: .
+    image: ${T3CODE_IMAGE:-ghcr.io/pingdotgg/t3code:local}
+    ports:
+      - "${T3CODE_PORT:-3773}:3773"
+    environment:
+      T3CODE_LOG_LEVEL: ${T3CODE_LOG_LEVEL:-Info}
+    volumes:
+      - ./t3-docker-data:/data
+      # Change the host side to the directory whose agents you want T3 Code to control.
+      - ${HOME}/development:/workspace
+      # Provider CLIs keep auth and local state in these directories, so they must be writable.
+      - ${HOME}/.codex:/home/node/.codex
+      # - ${HOME}/.claude:/home/node/.claude
+    restart: unless-stopped

@@ -84,6 +84,7 @@ Full docs live in [docs/](./docs). There's no docs site yet.
 - [Source control integrations](./docs/user/source-control.md)
 - Multiple accounts: [Codex](./docs/user/providers-codex.md) · [Claude](./docs/user/providers-claude.md)
 - Linux: [run T3 Code as a background service](./docs/user/background-service.md)
+- Containers: [Docker Compose, Kubernetes, and published images](./docs/user/docker.md)
 
 Building from source? Start at [docs/internals/overview.md](./docs/internals/overview.md).
 
