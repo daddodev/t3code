@@ -1319,6 +1319,38 @@ function WordWrapRow() {
   );
 }
 
+function WorkingDetailsRow() {
+  const settings = usePrimarySettings();
+  const updateSettings = useUpdatePrimarySettings();
+  return (
+    <SettingsRow
+      {...searchableSetting("working-details")}
+      description="Show the agent's plan steps inside the working row while a turn is in progress. When off, click the row to expand it. The row collapses on its own once the turn finishes."
+      resetAction={
+        settings.workingDetailsAutoExpand !== DEFAULT_UNIFIED_SETTINGS.workingDetailsAutoExpand ? (
+          <SettingResetButton
+            label="working details"
+            onClick={() =>
+              updateSettings({
+                workingDetailsAutoExpand: DEFAULT_UNIFIED_SETTINGS.workingDetailsAutoExpand,
+              })
+            }
+          />
+        ) : null
+      }
+      control={
+        <Switch
+          checked={settings.workingDetailsAutoExpand}
+          onCheckedChange={(checked) =>
+            updateSettings({ workingDetailsAutoExpand: Boolean(checked) })
+          }
+          aria-label="Expand working details while a turn is in progress"
+        />
+      }
+    />
+  );
+}
+
 function FontSettingsGroup() {
   return (
     <>
@@ -2013,6 +2045,8 @@ export function GeneralSettingsPanel() {
             />
           }
         />
+
+        <WorkingDetailsRow />
 
         <SettingsRow
           {...searchableSetting("provider-update-checks")}

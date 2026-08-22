@@ -1125,4 +1125,44 @@ describe("MessagesTimeline", () => {
     expect(markup).toContain("lucide-x");
     expect(markup).toContain('aria-label="Tool call failed"');
   });
+
+  it("renders the working row as a collapsed disclosure when the turn has a plan", () => {
+    const markup = renderToStaticMarkup(
+      <MessagesTimeline
+        {...buildProps()}
+        isWorking
+        activeTurnStartedAt={MESSAGE_CREATED_AT}
+        workingPlan={{
+          createdAt: MESSAGE_CREATED_AT,
+          turnId: TurnId.make("turn-1"),
+          steps: [
+            { step: "Step one", status: "inProgress" },
+            { step: "Step two", status: "pending" },
+          ],
+        }}
+        timelineEntries={[]}
+      />,
+    );
+
+    expect(markup).toContain("Working for");
+    expect(markup).toContain("Step one");
+    expect(markup).toContain('aria-expanded="false"');
+    expect(markup).toContain("lucide-chevron-right");
+    expect(markup).not.toContain("Step two");
+  });
+
+  it("keeps the working row non-interactive while the turn has no plan", () => {
+    const markup = renderToStaticMarkup(
+      <MessagesTimeline
+        {...buildProps()}
+        isWorking
+        activeTurnStartedAt={MESSAGE_CREATED_AT}
+        timelineEntries={[]}
+      />,
+    );
+
+    expect(markup).toContain("Working for");
+    expect(markup).toContain("disabled");
+    expect(markup).not.toContain("lucide-chevron");
+  });
 });

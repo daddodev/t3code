@@ -34,6 +34,7 @@ import { LegendList, type LegendListRef } from "@legendapp/list/react";
 import { FileDiff } from "@pierre/diffs/react";
 import {
   deriveTimelineEntries,
+  type ActivePlanState,
   workEntryDisplayIndicatesToolFailure,
   workLogEntryIsToolLike,
 } from "../../session-logic";
@@ -106,6 +107,7 @@ import {
   type ParsedPreviewAnnotation,
 } from "~/lib/previewAnnotation";
 import { cn } from "~/lib/utils";
+import { useClientSettings } from "~/hooks/useSettings";
 import { useUiStateStore } from "~/uiStateStore";
 import { type TimestampFormat } from "@t3tools/contracts/settings";
 import { formatChatTimestampTooltip, formatDayAwareTimestamp } from "../../timestampFormat";
@@ -153,8 +155,13 @@ interface TimelineRowActivityState {
   isWorking: boolean;
   isRevertingCheckpoint: boolean;
   latestTurnId: TurnId | null;
-  /** Current plan step label for the working row, when the turn has a plan. */
-  workingStepLabel: string | null;
+  /**
+   * The running turn's live plan. The working row expands to this so the
+   * agent's reasoning-in-progress is one click (or an opt-in default) away.
+   * Null while the running turn has no plan (or the plan belongs to an older
+   * turn).
+   */
+  workingPlan: ActivePlanState | null;
 }
 
 const TimelineRowCtx = createContext<TimelineRowSharedState>(null!);
@@ -207,7 +214,8 @@ interface MessagesTimelineProps {
   agentPanelModel?: AgentPanelModel;
   onOpenAgents?: () => void;
   isWorking: boolean;
-  workingStepLabel?: string | null;
+  /** The running turn's live plan, when it has one. See TimelineRowActivityState. */
+  workingPlan?: ActivePlanState | null;
   activeTurnStartedAt: string | null;
   listRef: React.RefObject<LegendListRef | null>;
   timelineEntries: ReturnType<typeof deriveTimelineEntries>;
@@ -250,7 +258,7 @@ interface MessagesTimelineProps {
 
 export const MessagesTimeline = memo(function MessagesTimeline({
   isWorking,
-  workingStepLabel = null,
+  workingPlan = null,
   activeTurnStartedAt,
   agentPanelModel = EMPTY_AGENT_PANEL_MODEL,
   onOpenAgents = NOOP_OPEN_AGENTS,
@@ -551,9 +559,9 @@ export const MessagesTimeline = memo(function MessagesTimeline({
       isWorking,
       isRevertingCheckpoint,
       latestTurnId: latestTurn?.turnId ?? null,
-      workingStepLabel,
+      workingPlan,
     }),
-    [isRevertingCheckpoint, isWorking, latestTurn?.turnId, workingStepLabel],
+    [isRevertingCheckpoint, isWorking, latestTurn?.turnId, workingPlan],
   );
 
   // Stable renderItem — no closure deps. Row components read shared state
@@ -1211,6 +1219,45 @@ function ProposedPlanTimelineRow({
   );
 }
 
+type TimelinePlanStep = ActivePlanState["steps"][number];
+
+/** Live plan step list: ✓ done, ● in progress, ○ pending. Shared by the per-turn plan chip and the working row. */
+function PlanStepList({ steps }: { steps: ReadonlyArray<TimelinePlanStep> }) {
+  return (
+    <div className="space-y-px">
+      {steps.map((step) => (
+        <div key={step.step} className="flex items-baseline gap-2 text-[12px] leading-5">
+          <span
+            className={cn(
+              "w-3 shrink-0 text-center font-mono text-[10px]",
+              step.status === "completed"
+                ? "text-success"
+                : step.status === "inProgress"
+                  ? "text-primary"
+                  : "text-muted-foreground/40",
+            )}
+            aria-hidden
+          >
+            {step.status === "completed" ? "✓" : step.status === "inProgress" ? "●" : "○"}
+          </span>
+          <span
+            className={cn(
+              "min-w-0",
+              step.status === "completed"
+                ? "text-muted-foreground/55"
+                : step.status === "inProgress"
+                  ? "text-foreground/90"
+                  : "text-muted-foreground/70",
+            )}
+          >
+            {step.step}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
  * Inline folded plan chip: one row per turn that produced plan/todo steps.
  * Collapsed by default — a segment bar plus the in-progress step label —
@@ -1275,36 +1322,8 @@ const TurnPlanTimelineRow = memo(function TurnPlanTimelineRow({
         ) : null}
       </button>
       {expanded ? (
-        <div className="mt-0.5 space-y-px pl-6">
-          {steps.map((step) => (
-            <div key={step.step} className="flex items-baseline gap-2 text-[12px] leading-5">
-              <span
-                className={cn(
-                  "w-3 shrink-0 text-center font-mono text-[10px]",
-                  step.status === "completed"
-                    ? "text-success"
-                    : step.status === "inProgress"
-                      ? "text-primary"
-                      : "text-muted-foreground/40",
-                )}
-                aria-hidden
-              >
-                {step.status === "completed" ? "✓" : step.status === "inProgress" ? "●" : "○"}
-              </span>
-              <span
-                className={cn(
-                  "min-w-0",
-                  step.status === "completed"
-                    ? "text-muted-foreground/55"
-                    : step.status === "inProgress"
-                      ? "text-foreground/90"
-                      : "text-muted-foreground/70",
-                )}
-              >
-                {step.step}
-              </span>
-            </div>
-          ))}
+        <div className="mt-0.5 pl-6">
+          <PlanStepList steps={steps} />
         </div>
       ) : null}
     </div>
@@ -1312,22 +1331,55 @@ const TurnPlanTimelineRow = memo(function TurnPlanTimelineRow({
 });
 
 function WorkingTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "working" }> }) {
-  const { workingStepLabel } = use(TimelineRowActivityCtx);
+  const { workingPlan } = use(TimelineRowActivityCtx);
+  const autoExpand = useClientSettings((settings) => settings.workingDetailsAutoExpand);
+  // Seeded from the preference once: the row remounts per turn, so turning the
+  // setting on mid-turn or toggling manually never fights the user.
+  const [expanded, setExpanded] = useState(() => autoExpand);
+  const steps = workingPlan?.steps ?? [];
+  const hasPlan = steps.length > 0;
+  const stepLabel =
+    steps.find((step) => step.status === "inProgress")?.step ??
+    steps.find((step) => step.status === "pending")?.step ??
+    null;
+  const Chevron = expanded ? ChevronDownIcon : ChevronRightIcon;
+
   return (
     <div>
       <div className="border-b border-border/60 pb-2 pt-1">
-        <div className="px-1 text-sm leading-relaxed text-muted-foreground tabular-nums">
-          {row.createdAt ? (
-            <>
-              Working for <WorkingTimer createdAt={row.createdAt} />
-            </>
-          ) : (
-            "Working..."
+        <button
+          type="button"
+          disabled={!hasPlan}
+          onClick={() => setExpanded((value) => !value)}
+          aria-expanded={hasPlan ? expanded : undefined}
+          className={cn(
+            "flex w-full min-w-0 items-center gap-2 rounded-md px-1 text-left text-sm leading-relaxed text-muted-foreground tabular-nums",
+            hasPlan
+              ? "cursor-pointer transition-colors duration-150 hover:bg-accent/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70"
+              : "cursor-default",
           )}
-          {workingStepLabel ? (
-            <span className="ml-2 text-muted-foreground/55">· {workingStepLabel}</span>
+        >
+          <span className="shrink-0">
+            {row.createdAt ? (
+              <>
+                Working for <WorkingTimer createdAt={row.createdAt} />
+              </>
+            ) : (
+              "Working..."
+            )}
+          </span>
+          {stepLabel ? (
+            <span className="min-w-0 truncate text-muted-foreground/55">· {stepLabel}</span>
           ) : null}
-        </div>
+          {hasPlan ? (
+            <Chevron className="ml-auto size-3.5 shrink-0 text-muted-foreground/65" />
+          ) : null}
+        </button>
+        {hasPlan && expanded ? (
+          <div className="mt-1 border-l border-border/60 pl-3 pr-1">
+            <PlanStepList steps={steps} />
+          </div>
+        ) : null}
       </div>
       {row.showThinking ? (
         <div className="mt-1">

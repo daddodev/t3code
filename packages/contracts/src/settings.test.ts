@@ -35,6 +35,15 @@ describe("ClientSettings word wrap", () => {
   });
 });
 
+describe("ClientSettings working details", () => {
+  it("keeps the working row collapsed by default", () => {
+    expect(decodeClientSettings({}).workingDetailsAutoExpand).toBe(false);
+    expect(
+      decodeClientSettingsPatch({ workingDetailsAutoExpand: true }).workingDetailsAutoExpand,
+    ).toBe(true);
+  });
+});
+
 describe("ClientSettings glass opacity", () => {
   it("defaults to a readable translucent surface", () => {
     expect(decodeClientSettings({}).glassOpacity).toBe(80);
