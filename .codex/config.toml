@@ -1,5 +1,5 @@
 [mcp_servers.xcodebuildmcp]
-enabled = true
+enabled = false
 required = false
 command = "npx"
 args = ["--yes", "xcodebuildmcp@2.6.2", "mcp"]
