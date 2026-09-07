@@ -30,13 +30,12 @@ import { ActivityIndicator, Alert, Platform, Pressable, View, type ViewStyle } f
 import { FilePreviewModal, type FilePreviewSource } from "../../components/FilePreviewModal";
 import {
   composerAttachmentUploadBlockReason,
+  composerAttachmentsStillUploading,
   composerAttachmentUploadsAtom,
 } from "../../state/composer-attachment-uploads";
 import Animated, {
   FadeIn,
-  FadeInDown,
   FadeOut,
-  FadeOutDown,
   LinearTransition,
   ReduceMotion,
   useAnimatedStyle,
@@ -271,12 +270,7 @@ const ComposerConnectionStatusPill = memo(function ComposerConnectionStatusPill(
 }) {
   const isReconnecting = props.status.kind === "reconnecting";
   return (
-    <Animated.View
-      className="absolute inset-x-0 bottom-full items-center pb-2"
-      entering={FadeInDown.duration(180)}
-      exiting={FadeOutDown.duration(140)}
-      pointerEvents="box-none"
-    >
+    <View className="absolute inset-x-0 bottom-full items-center pb-2" pointerEvents="box-none">
       <Pressable
         accessibilityRole="button"
         onPress={props.onPress}
@@ -294,7 +288,7 @@ const ComposerConnectionStatusPill = memo(function ComposerConnectionStatusPill(
           {props.status.label}
         </Text>
       </Pressable>
-    </Animated.View>
+    </View>
   );
 });
 
@@ -323,8 +317,21 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
     (props.selectedThread.session?.status === "running" ||
       props.selectedThread.session?.status === "starting");
 
+  const uploadStates = useAtomValue(composerAttachmentUploadsAtom);
+  const attachmentsUploading =
+    props.connectionState === "connected" &&
+    composerAttachmentsStillUploading({
+      environmentId: props.environmentId,
+      attachments: props.draftAttachments,
+      serverConfig: props.serverConfig,
+      states: uploadStates,
+    });
+  // Every send goes through the outbox; the label says whether it leaves now
+  // or waits (for the connection, an earlier queued message, or an upload).
   const sendLabel =
-    props.connectionState !== "connected" || props.queueCount > 0 ? "Queue" : "Send";
+    props.connectionState !== "connected" || props.queueCount > 0 || attachmentsUploading
+      ? "Queue"
+      : "Send";
   const currentModelSelection = props.selectedThread.modelSelection;
   const currentRuntimeMode = props.selectedThread.runtimeMode;
   const modelUnavailable =
@@ -403,7 +410,6 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
   const isExpanded = isFocused || settingsSheetPresentation.isActive;
   const showsCompactDictation = isVoiceInputPresented && !isExpanded;
   const isToolbarVisible = isExpanded || isVoiceInputPresented;
-  const uploadStates = useAtomValue(composerAttachmentUploadsAtom);
   const attachmentBlockReason = composerAttachmentUploadBlockReason({
     environmentId: props.environmentId,
     attachments: props.draftAttachments,
@@ -878,16 +884,6 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
             </ComposerDictationToolbar>
           </Animated.View>
         </ComposerSurface>
-
-        {/* Queue count */}
-        {props.queueCount > 0 ? (
-          <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(120)}>
-            <Text className="pt-2 text-xs text-foreground-muted">
-              {props.queueCount} queued message{props.queueCount === 1 ? "" : "s"} will send
-              automatically.
-            </Text>
-          </Animated.View>
-        ) : null}
       </Animated.View>
 
       <VideoPreviewModal source={previewVideo} onRequestClose={closePreview} />
