@@ -25,24 +25,24 @@
       mkCodex =
         pkgs:
         let
-          codexVersion = "0.154.0";
+          codexVersion = "0.163.0";
           codexRelease =
             {
               x86_64-linux = {
                 url = "https://github.com/openai/codex/releases/download/rust-v${codexVersion}/codex-package-x86_64-unknown-linux-musl.tar.gz";
-                hash = "sha256-/G4+O4Xyz31mRSDuXGan/kqhK659RoNPR+LxZf0Nb3g=";
+                hash = "sha256-WCZGxr8FYesN5UD3/IW5EhsAkagmvG6Wgwt/FyISIYI=";
               };
               aarch64-linux = {
                 url = "https://github.com/openai/codex/releases/download/rust-v${codexVersion}/codex-package-aarch64-unknown-linux-musl.tar.gz";
-                hash = "sha256-l9k+Ed9y08JnctsBnm6ou3LCRlANRrmMdgg58yQDVeY=";
+                hash = "sha256-nY7PLRnT4YSHeYOQLWyF3kiziI3LcsOCqKDJdYRZJ/s=";
               };
               x86_64-darwin = {
                 url = "https://github.com/openai/codex/releases/download/rust-v${codexVersion}/codex-package-x86_64-apple-darwin.tar.gz";
-                hash = "sha256-gFLGrMvgNhv71CShCqXyImY27Yr7bcvV5kN5k+V7Ftg=";
+                hash = "sha256-DBgtYZTacAOUNnjch4ZrVLPe5xntr40JLzBK/7xrV9E=";
               };
               aarch64-darwin = {
                 url = "https://github.com/openai/codex/releases/download/rust-v${codexVersion}/codex-package-aarch64-apple-darwin.tar.gz";
-                hash = "sha256-QnynTAJwSeDNGjMNYR5/jR/g8etqbYWsFvYbzyy0pIU=";
+                hash = "sha256-sDRPwuQfFeAHEUflhpAIBHuP9L8sSoiXl107rj8QOzQ=";
               };
             }
             .${pkgs.stdenv.hostPlatform.system};
@@ -69,24 +69,24 @@
       mkClaude =
         pkgs:
         let
-          claudeVersion = "2.1.273";
+          claudeVersion = "2.1.304";
           claudeRelease =
             {
               x86_64-linux = {
                 url = "https://downloads.claude.ai/claude-code-releases/${claudeVersion}/linux-x64/claude";
-                hash = "sha256-bHUuLMfBEMnfFfJtjRNNQ4xa6V29YQ78GjCL9/nF9sE=";
+                hash = "sha256-6g8TV4RjFhmnpAnQcyLs7JZPnMT9N3UI7Ruj8UHyeRI=";
               };
               aarch64-linux = {
                 url = "https://downloads.claude.ai/claude-code-releases/${claudeVersion}/linux-arm64/claude";
-                hash = "sha256-EDz6tNauiYtq9pIzb7Zi/8xgcHXMZAiJK9NQs/VJ6+4=";
+                hash = "sha256-xIcRdSZQmrbS7mAT4U8YH69o1tav5rsNSytKn+yl7LM=";
               };
               x86_64-darwin = {
                 url = "https://downloads.claude.ai/claude-code-releases/${claudeVersion}/darwin-x64/claude";
-                hash = "sha256-IDDs+RHjAed4s8WkkGjWdROEyDDkjqFPEeth3SNiLO4=";
+                hash = "sha256-8q5Am0axvcHex6+hLGoJT/ZOfUyicsoJ9p3QCAyEZwM=";
               };
               aarch64-darwin = {
                 url = "https://downloads.claude.ai/claude-code-releases/${claudeVersion}/darwin-arm64/claude";
-                hash = "sha256-lT6YgNvLC3DzHB9Qjeaj/TiXU9ExaIVX/ZktqRhGk/s=";
+                hash = "sha256-uaxTdIOfFKvz8fRWEGN8MytdruXODRY0cmzvh6q3jmo=";
               };
             }
             .${pkgs.stdenv.hostPlatform.system};
@@ -202,22 +202,25 @@
               nspr
               nss
               pango
-              xorg.libX11
-              xorg.libXcomposite
-              xorg.libXcursor
-              xorg.libXdamage
-              xorg.libXext
-              xorg.libXfixes
-              xorg.libXi
-              xorg.libXrandr
-              xorg.libXrender
-              xorg.libXScrnSaver
-              xorg.libXtst
+              libX11
+              libXcomposite
+              libXcursor
+              libXdamage
+              libXext
+              libXfixes
+              libXi
+              libXrandr
+              libXrender
+              libXScrnSaver
+              libXtst
             ];
         in
         {
           default = pkgs.mkShell {
             packages = [
+              (pkgs.writeShellScriptBin "t3" ''
+                exec ${pkgs.nodejs_24}/bin/node "$T3CODE_DEV_CLI" "$@"
+              '')
               claude
               codex
               pkgs.bun
@@ -231,6 +234,7 @@
             ++ linuxElectronDeps;
 
             shellHook = ''
+              export T3CODE_DEV_CLI="$PWD/apps/server/dist/bin.mjs"
               echo "T3 Code dev shell"
             '';
           };
