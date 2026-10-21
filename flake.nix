@@ -127,6 +127,42 @@
             runHook postInstall
           '';
         };
+      linuxBrowserDeps =
+        pkgs:
+        with pkgs;
+        lib.optionals stdenv.isLinux [
+          alsa-lib
+          at-spi2-atk
+          at-spi2-core
+          cairo
+          cups
+          dbus
+          expat
+          glib
+          gtk3
+          libdrm
+          libgbm
+          libnotify
+          libsecret
+          mesa
+          nspr
+          nss
+          pango
+          systemd
+          libxcb
+          libxkbcommon
+          libX11
+          libXcomposite
+          libXcursor
+          libXdamage
+          libXext
+          libXfixes
+          libXi
+          libXrandr
+          libXrender
+          libXScrnSaver
+          libXtst
+        ];
       forEachSystem = f: lib.genAttrs systems (system: f (import nixpkgs { inherit system; }));
     in
     {
@@ -150,6 +186,9 @@
               text = ''
                 bun install --backend=copyfile --frozen-lockfile
                 export PATH="$PWD/node_modules/.bin:$PATH"
+                ${lib.optionalString pkgs.stdenv.isLinux ''
+                  export LD_LIBRARY_PATH="${lib.makeLibraryPath (linuxBrowserDeps pkgs)}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+                ''}
 
                 exec ${command} "$@"
               '';
@@ -185,35 +224,6 @@
         let
           codex = mkCodex pkgs;
           claude = mkClaude pkgs;
-          linuxElectronDeps =
-            with pkgs;
-            lib.optionals stdenv.isLinux [
-              alsa-lib
-              at-spi2-atk
-              cairo
-              cups
-              dbus
-              expat
-              gtk3
-              libdrm
-              libnotify
-              libsecret
-              mesa
-              nspr
-              nss
-              pango
-              libX11
-              libXcomposite
-              libXcursor
-              libXdamage
-              libXext
-              libXfixes
-              libXi
-              libXrandr
-              libXrender
-              libXScrnSaver
-              libXtst
-            ];
         in
         {
           default = pkgs.mkShell {
@@ -231,7 +241,11 @@
               pkgs.pkg-config
               pkgs.python312
             ]
-            ++ linuxElectronDeps;
+            ++ linuxBrowserDeps pkgs;
+
+            env = lib.optionalAttrs pkgs.stdenv.isLinux {
+              LD_LIBRARY_PATH = lib.makeLibraryPath (linuxBrowserDeps pkgs);
+            };
 
             shellHook = ''
               export T3CODE_DEV_CLI="$PWD/apps/server/dist/bin.mjs"
