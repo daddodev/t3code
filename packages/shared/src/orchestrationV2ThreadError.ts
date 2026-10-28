@@ -5,6 +5,14 @@ import type {
 } from "@t3tools/contracts";
 import * as DateTime from "effect/DateTime";
 
+export function providerFailureTitle(failure: {
+  readonly class?: OrchestrationV2ProviderFailure["class"] | null | undefined;
+  readonly code?: string | null | undefined;
+}) {
+  if (failure.class !== "usage_limit") return "Provider error";
+  return failure.code === "model_cooldown" ? "Temporarily rate limited" : "Usage limit reached";
+}
+
 export function latestRootProviderFailure(
   run: OrchestrationV2Run | null,
   turnItems: ReadonlyArray<OrchestrationV2TurnItem>,
@@ -43,6 +51,7 @@ export function threadErrorSummary(
     lastError: sessionError ?? failure?.message ?? null,
     lastErrorClass:
       sessionError !== null && sessionError !== failure?.message ? null : (failure?.class ?? null),
+    ...(currentFailure?.code === "model_cooldown" ? { lastErrorCode: currentFailure.code } : {}),
   };
 }
 

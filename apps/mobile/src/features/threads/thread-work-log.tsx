@@ -1,3 +1,4 @@
+import { providerFailureTitle } from "@t3tools/shared/orchestrationV2ThreadError";
 import { Button } from "../../components/ui/Button";
 import { SubagentStatusDot } from "./SubagentStatusDot";
 import { ThreadSubagentGroup } from "./thread-subagent-group";
@@ -897,7 +898,7 @@ const ThreadWorkLogRow = function ThreadWorkLogRow(
         })
       : null;
     const label = warning
-      ? `Usage limit reached.${resetTime ? ` Retry after ${resetTime}.` : ""}`
+      ? `${providerFailureTitle(failureItem.failure)}.${resetTime ? ` Retry after ${resetTime}.` : ""}`
       : row.summary;
     return (
       <WorkLogPressable

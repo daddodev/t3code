@@ -4593,9 +4593,9 @@ it.layer(layerTest)("ProjectionStoreV2", (it) => {
 
       const failure = {
         class: "usage_limit" as const,
-        message: "Plan limit reached.",
+        message: "All eligible credentials are cooling down.",
         resetAt: "2099-01-01T00:00:00.000Z",
-        code: "usageLimitExceeded",
+        code: "model_cooldown",
         retryable: null,
       };
       const threadId = yield* attachErroredSession("own", failure.message, now);
@@ -4658,6 +4658,10 @@ it.layer(layerTest)("ProjectionStoreV2", (it) => {
 
       const { statements, tracer } = traceSqlStatements();
       const shell = yield* projectionStore.getShellSnapshot().pipe(Effect.withTracer(tracer));
+      assert.equal(
+        shell.threads.find((thread) => thread.id === threadId)?.lastErrorCode,
+        "model_cooldown",
+      );
       assert.equal(
         shell.threads.find((thread) => thread.id === threadId)?.lastError,
         failure.message,

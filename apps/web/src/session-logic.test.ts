@@ -142,6 +142,13 @@ describe("V2 session presentation", () => {
         failure: { ...retryItem.failure, class: "usage_limit" },
       }),
     ).toMatchObject({ label: "Usage limit reached after 2/10 retries" });
+    expect(
+      providerErrorPresentation({
+        ...retryItem,
+        status: "failed",
+        failure: { ...retryItem.failure, class: "usage_limit", code: "model_cooldown" },
+      }),
+    ).toMatchObject({ label: "Temporarily rate limited after 2/10 retries" });
     const recoveredLimit = {
       ...retryItem,
       status: "completed" as const,

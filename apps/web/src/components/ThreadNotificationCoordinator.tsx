@@ -1,3 +1,4 @@
+import { providerFailureTitle } from "@t3tools/shared/orchestrationV2ThreadError";
 import {
   type PendingSubagentRequest,
   presentThreadShell,
@@ -164,7 +165,7 @@ function EnvironmentNotifications({
           : status === "approval"
             ? "Approval needed"
             : status === "limited"
-              ? "Usage limit reached"
+              ? providerFailureTitle({ class: "usage_limit", code: thread.runtime?.lastErrorCode })
               : status === "failed"
                 ? "Thread failed"
                 : "Input needed";

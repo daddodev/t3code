@@ -1,3 +1,4 @@
+import { providerFailureTitle } from "@t3tools/shared/orchestrationV2ThreadError";
 import {
   type OrchestrationV2LimitRecovery,
   type OrchestrationV2LimitRecoveryUpdate,
@@ -11,6 +12,7 @@ import type { ComposerBannerStackItem } from "./ComposerBannerStack";
 
 type RecoveryProps = {
   runId: RunId;
+  code?: string | null | undefined;
   resetAt: string | null;
   stoppedAt: string;
   snoozedUntil: string | null;
@@ -26,15 +28,24 @@ export function usageLimitRecoveryBannerItem(props: RecoveryProps): ComposerBann
     variant: "warning",
     priority: "urgent",
     icon: <GaugeIcon />,
-    title: "Usage limit reached",
+    title: providerFailureTitle({ class: "usage_limit", code: props.code }),
     description: resetAt
-      ? `Resets ${new Date(resetAt).toLocaleString()}`
-      : "Reset time unavailable; retry manually",
+      ? `${props.code === "model_cooldown" ? "Retry after" : "Resets"} ${new Date(resetAt).toLocaleString()}`
+      : props.code === "model_cooldown"
+        ? "Retry time unavailable; retry manually"
+        : "Reset time unavailable; retry manually",
     actions: canSchedule ? <RecoveryActions key={`${runId}:${resetAt}`} {...props} /> : null,
   };
 }
 
-function RecoveryActions({ runId, resetAt, recovery, snoozedUntil, onChange }: RecoveryProps) {
+function RecoveryActions({
+  runId,
+  code,
+  resetAt,
+  recovery,
+  snoozedUntil,
+  onChange,
+}: RecoveryProps) {
   const [pending, setPending] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
@@ -59,7 +70,10 @@ function RecoveryActions({ runId, resetAt, recovery, snoozedUntil, onChange }: R
       toastManager.add({
         type: "error",
         title: "Could not snooze thread",
-        description: "The reset time has passed. Retry the thread manually.",
+        description:
+          code === "model_cooldown"
+            ? "The retry time has passed. Retry the thread manually."
+            : "The reset time has passed. Retry the thread manually.",
       });
       setNowMs(Date.now());
       return;
@@ -85,7 +99,13 @@ function RecoveryActions({ runId, resetAt, recovery, snoozedUntil, onChange }: R
   return (
     <>
       <Button size="xs" variant="ghost" disabled={pending} onClick={() => void toggle("resume")}>
-        {pending ? "Saving..." : scheduled ? "Cancel auto-resume" : "Resume at reset"}
+        {pending
+          ? "Saving..."
+          : scheduled
+            ? "Cancel auto-resume"
+            : code === "model_cooldown"
+              ? "Resume after cooldown"
+              : "Resume at reset"}
       </Button>
       {!snoozed ? (
         <Button
@@ -94,7 +114,11 @@ function RecoveryActions({ runId, resetAt, recovery, snoozedUntil, onChange }: R
           disabled={pending || Date.parse(resetAt!) <= nowMs}
           onClick={() => void toggle("snooze")}
         >
-          {pending ? "Saving..." : "Snooze until reset"}
+          {pending
+            ? "Saving..."
+            : code === "model_cooldown"
+              ? "Snooze until cooldown ends"
+              : "Snooze until reset"}
         </Button>
       ) : null}
     </>

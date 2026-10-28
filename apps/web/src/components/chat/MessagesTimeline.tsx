@@ -1,3 +1,4 @@
+import { providerFailureTitle } from "@t3tools/shared/orchestrationV2ThreadError";
 import { useRenderedAppearance } from "../../hooks/useTheme";
 import type { Root, RootContent } from "mdast";
 import { ThreadFindTimelineContext } from "./ThreadFindProvider";
@@ -5357,7 +5358,7 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
     const resetAt = failureItem.failure.resetAt;
     const resetTime = resetAt ? formatUpcomingTimestamp(resetAt, timestampFormat) : null;
     const label = warning
-      ? `Usage limit reached.${resetTime ? ` Retry after ${resetTime}.` : ""}`
+      ? `${providerFailureTitle(failureItem.failure)}.${resetTime ? ` Retry after ${resetTime}.` : ""}`
       : workEntry.label;
     const retryRunId =
       failureItem.runId !== null &&

@@ -6,6 +6,7 @@ import {
   formatSearchToolLabel,
 } from "@t3tools/shared/toolActivity";
 import { field, text } from "../unknownField.ts";
+import { claudeProxyCooldown } from "./claudeProxyCooldown.ts";
 import {
   initialWorkflowAgentTranscriptCursor,
   readWorkflowAgentTranscript,
@@ -3082,6 +3083,23 @@ function providerFailureFromResult(
   failureHint?: string,
   usageLimited = false,
 ): OrchestrationV2ProviderFailure | null {
+  if (
+    message.subtype === "success" &&
+    message.is_error &&
+    message.terminal_reason === "api_error" &&
+    message.api_error_status === 429
+  ) {
+    const cooldown = claudeProxyCooldown(message.result, field(message, "api_error_params"));
+    if (cooldown !== null) {
+      return makeProviderFailure({
+        class: "usage_limit",
+        code: "model_cooldown",
+        message: `Claude temporarily rate limited. ${cooldown.message}`,
+        retryable: true,
+        resetAt: cooldown.resetAt,
+      });
+    }
+  }
   const gatewayLimit =
     failureHint === undefined &&
     message.subtype === "success" &&
@@ -8468,7 +8486,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                   })
                 : providerFailureFromResult(message, completedAt, failureHint, usageLimited);
             const terminalFailure =
-              resultFailure?.class === "usage_limit"
+              resultFailure?.class === "usage_limit" && resultFailure.code !== "model_cooldown"
                 ? { ...resultFailure, resetAt: resetAt ?? resultFailure.resetAt ?? null }
                 : resultFailure;
             yield* finalizeActiveTurn({

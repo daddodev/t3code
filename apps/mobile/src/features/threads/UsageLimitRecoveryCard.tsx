@@ -1,3 +1,4 @@
+import { providerFailureTitle } from "@t3tools/shared/orchestrationV2ThreadError";
 import { Button } from "../../components/ui/Button";
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
 import { AsyncResult } from "effect/reactivity";
@@ -21,6 +22,7 @@ export function UsageLimitRecoveryCard({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const resetAt = thread.runtime?.usageLimitResetAt ?? null;
+  const cooldown = thread.runtime?.lastErrorCode === "model_cooldown";
   const canSchedule =
     resetAt !== null &&
     Date.parse(resetAt) > Date.parse(thread.latestRun?.completedAt ?? thread.updatedAt);
@@ -63,7 +65,11 @@ export function UsageLimitRecoveryCard({
   async function toggle(action: "resume" | "snooze") {
     if (!resetAt || !runId || !canSchedule) return;
     if (action === "snooze" && !snoozed && Date.parse(resetAt) <= Date.now()) {
-      setError("The reset time has passed. Retry the thread manually.");
+      setError(
+        cooldown
+          ? "The retry time has passed. Retry the thread manually."
+          : "The reset time has passed. Retry the thread manually.",
+      );
       return;
     }
     setPending(true);
@@ -88,20 +94,31 @@ export function UsageLimitRecoveryCard({
   return (
     <View className="mx-3 mb-2 gap-2 rounded-xl border border-warning-foreground/25 bg-screen p-3">
       <Text className="text-sm text-warning-foreground">
+        {providerFailureTitle({ class: "usage_limit", code: thread.runtime.lastErrorCode })}.{" "}
         {resetAt
-          ? `Usage limit resets ${DateTime.toDateUtc(DateTime.makeUnsafe(resetAt)).toLocaleString()}.`
-          : "The provider did not report a reset time. Retry manually when your limit is available."}
+          ? `${cooldown ? "Retry after" : "Usage limit resets"} ${DateTime.toDateUtc(DateTime.makeUnsafe(resetAt)).toLocaleString()}.`
+          : cooldown
+            ? "The provider did not report when to retry. Retry manually."
+            : "The provider did not report a reset time. Retry manually when your limit is available."}
       </Text>
       {canSchedule ? (
         <View className="flex-row flex-wrap gap-2">
           <Button
-            label={scheduled ? "Cancel auto-resume" : "Resume at reset"}
+            label={
+              scheduled
+                ? "Cancel auto-resume"
+                : cooldown
+                  ? "Resume after cooldown"
+                  : "Resume at reset"
+            }
             tone="secondary"
             disabled={pending}
             onPress={() => void toggle("resume")}
           />
           <Button
-            label={snoozed ? "Wake now" : "Snooze until reset"}
+            label={
+              snoozed ? "Wake now" : cooldown ? "Snooze until cooldown ends" : "Snooze until reset"
+            }
             tone="secondary"
             disabled={pending || (!snoozed && resetPassed)}
             onPress={() => void toggle("snooze")}

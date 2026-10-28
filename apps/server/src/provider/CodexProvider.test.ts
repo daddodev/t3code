@@ -17,6 +17,7 @@ import {
   applyPreferredCodexDefaultModel,
   checkCodexProviderStatus,
   mapCodexModelCapabilities,
+  type CodexAppServerProviderSnapshot,
 } from "./CodexProvider.ts";
 
 it("maps current Codex model capability fields", () => {
@@ -203,7 +204,10 @@ const account = {
   requiresOpenaiAuth: false,
 } as const;
 
-const startProbe = Effect.fn("startProbe")(function* (hang: ReadonlyArray<string>) {
+const startProbe = Effect.fn("startProbe")(function* (
+  hang: ReadonlyArray<string>,
+  accountResponse: CodexAppServerProviderSnapshot["account"] = account,
+) {
   const fs = yield* FileSystem.FileSystem;
   const homePath = yield* fs.makeTempDirectoryScoped();
   yield* fs.writeFileString(
@@ -267,6 +271,8 @@ const startProbe = Effect.fn("startProbe")(function* (hang: ReadonlyArray<string
                   });
                 } else if (method === "skills/list") {
                   yield* reply(id, { data: [] });
+                } else if (method === "config/read") {
+                  yield* reply(id, { config: {}, origins: {} });
                 } else if (method === "account/rateLimits/read") {
                   yield* reply(id, {
                     rateLimits: { primary: null, secondary: null, credits: null, planType: "pro" },
@@ -291,11 +297,35 @@ const startProbe = Effect.fn("startProbe")(function* (hang: ReadonlyArray<string
   return {
     fiber,
     requested,
-    authenticate: requested("account/read").pipe(Effect.flatMap((id) => reply(id, account))),
+    usageRequested: Deferred.isDone(requests.get("account/rateLimits/read")!),
+    authenticate: requested("account/read").pipe(
+      Effect.flatMap((id) => reply(id, accountResponse)),
+    ),
   };
 });
 
 it.layer(NodeServices.layer)("Codex probe budget", (it) => {
+  it.effect.each([
+    { name: "custom provider", account: null, requiresOpenaiAuth: false },
+    { name: "API key", account: { type: "apiKey" }, requiresOpenaiAuth: true },
+  ] as const)("skips native subscription limits for a $name", (scenario) =>
+    Effect.gen(function* () {
+      const probe = yield* startProbe([], scenario);
+      yield* probe.authenticate;
+      yield* probe.requested("skills/list");
+      yield* probe.requested("model/list/1");
+      const provider = yield* Fiber.join(probe.fiber);
+      assert.strictEqual(provider.status, "ready");
+      assert.strictEqual(provider.usageLimits?.unavailable?.reason, "unsupported");
+      assert.strictEqual(provider.usageLimits?.unavailable?.message, undefined);
+      assert.isFalse(yield* probe.usageRequested);
+      assert.deepStrictEqual(
+        provider.models.map((model) => model.slug),
+        ["gpt-test", "custom-model"],
+      );
+    }).pipe(Effect.scoped),
+  );
+
   it.effect("keeps the first complete catalog when its refresh never answers", () =>
     Effect.gen(function* () {
       const probe = yield* startProbe(["model/list/2"]);

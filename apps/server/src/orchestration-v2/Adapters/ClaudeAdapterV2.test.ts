@@ -5131,6 +5131,75 @@ describe("ClaudeAdapterV2 background wake turns", () => {
     ),
   );
 
+  it.effect.each([
+    {
+      status: 429,
+      deadline: "2033-05-19T07:20:00Z",
+      cooldown: true,
+      resetAt: "2033-05-19T07:20:00.000Z",
+    },
+    { status: 429, deadline: undefined, cooldown: true, resetAt: undefined },
+    { status: 429, deadline: "invalid", cooldown: true, resetAt: undefined },
+    { status: 503, deadline: "2033-05-19T07:20:00Z", cooldown: false, resetAt: undefined },
+  ])("recovers proxy cooldown status $status with deadline $deadline", (scenario) =>
+    Effect.gen(function* () {
+      const harness = yield* makeWakeHarness;
+      yield* harness.runtime.startTurn(
+        makeClaudeTestTurnInput({
+          threadId: harness.threadId,
+          providerThread: harness.providerThread,
+          now: yield* DateTime.now,
+          attemptId: RunAttemptId.make("attempt-proxy-cooldown"),
+          text: "Continue.",
+          attachments: [],
+        }),
+      );
+      const marker = scenario.deadline === undefined ? "" : ` retry_at=${scenario.deadline}`;
+      yield* Queue.offerAll(harness.sdkMessages, [
+        {
+          type: "rate_limit_event",
+          rate_limit_info: {
+            status: "rejected",
+            rateLimitType: "five_hour",
+            resetsAt: Date.parse("2033-05-19T12:20:00Z") / 1_000,
+          },
+          uuid: "00000000-0000-4000-8000-000000000651",
+          session_id: "claude-session",
+        },
+        makeAssistantErrorFrame({
+          uuid: "00000000-0000-4000-8000-000000000652",
+          error: "rate_limit",
+        }),
+        makeResultFrame({
+          uuid: "00000000-0000-4000-8000-000000000653",
+          result: `API Error: Request rejected (${scenario.status}) · [CLIProxyAPI model_cooldown${marker}] All credentials for model claude-opus-5-5 are cooling down via provider claude (last error: rate_limit_error: This request would exceed your account's rate limit. Please try again later.)`,
+          terminalReason: "api_error",
+          isError: true,
+          apiErrorStatus: scenario.status,
+        }),
+      ]);
+      const terminal = yield* Queue.take(harness.terminalReceipts);
+      assert.equal(terminal.status, "failed");
+      if (terminal.status !== "failed") return;
+      assert.equal(terminal.failure.code, scenario.cooldown ? "model_cooldown" : "api_error_503");
+      assert.equal(terminal.failure.resetAt ?? undefined, scenario.resetAt);
+      if (scenario.cooldown) {
+        assert.equal(terminal.failure.class, "usage_limit");
+        assert.equal(terminal.failure.retryable, true);
+        assert.include(terminal.failure.message, "Claude temporarily rate limited.");
+        assert.include(
+          terminal.failure.message,
+          "All credentials for model claude-opus-5-5 are cooling down",
+        );
+        assert.notInclude(terminal.failure.message, "[CLIProxyAPI");
+      }
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(IdAllocator.layer, McpProviderSessions.layer, NodeServices.layer),
+      ),
+    ),
+  );
+
   it.effect.each([429, 401, 503, 529])(
     "classifies the current Claude API status %s after rate-limit evidence",
     (apiErrorStatus) =>

@@ -565,7 +565,8 @@ const probeCodexAppServerProvider = Effect.fn("probeCodexAppServerProvider")(fun
       ),
       // Usage is an enrichment: a failure or a slow answer degrades to "no
       // usage this probe" rather than costing the account and models.
-      input.skipNativeUsage
+      // Custom providers can run without an account, but this RPC requires ChatGPT auth.
+      input.skipNativeUsage || accountResponse.account?.type !== "chatgpt"
         ? Effect.succeed(undefined)
         : withCodexDiscoveryDeadline(
             client.request("account/rateLimits/read", null),
@@ -790,7 +791,7 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
     ? { status: "ready" as const, auth: managedAuth, message: undefined }
     : accountProbeStatus(snapshot);
   const usageLimits =
-    snapshot.account.account?.type === "apiKey"
+    snapshot.account.account?.type !== "chatgpt"
       ? makeUnavailableUsageLimits({ checkedAt, reason: "unsupported" })
       : snapshot.rateLimits === undefined || "failure" in snapshot.rateLimits
         ? makeUnavailableUsageLimits({

@@ -6499,6 +6499,7 @@ it.layer(layerTest)("usage-limit recovery", (it) => {
 
   it.effect.each([
     "resume",
+    "proxy-cooldown",
     "queued-resume",
     "cancel",
     "rearm",
@@ -6615,7 +6616,7 @@ it.layer(layerTest)("usage-limit recovery", (it) => {
               failure: {
                 class: "usage_limit",
                 message: "Plan limit reached.",
-                code: "usageLimitExceeded",
+                code: scenario === "proxy-cooldown" ? "model_cooldown" : "usageLimitExceeded",
                 retryable: null,
                 resetAt,
               },
@@ -7019,6 +7020,7 @@ it.layer(layerTest)("usage-limit recovery", (it) => {
         after.runs,
         before.runs.length +
           (scenario === "resume" ||
+          scenario === "proxy-cooldown" ||
           stopBeforeArm ||
           scenario === "queued-resume" ||
           scenario === "snooze-resume" ||
@@ -7032,6 +7034,7 @@ it.layer(layerTest)("usage-limit recovery", (it) => {
         after.messages,
         before.messages.length +
           (scenario === "resume" ||
+          scenario === "proxy-cooldown" ||
           stopBeforeArm ||
           scenario === "queued-resume" ||
           scenario === "snooze-resume" ||

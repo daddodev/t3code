@@ -1,3 +1,4 @@
+import { providerFailureTitle } from "@t3tools/shared/orchestrationV2ThreadError";
 import type {
   ThreadPendingApproval,
   ThreadPendingUserInput,
@@ -635,7 +636,7 @@ function itemSummary(
     case "run_interrupt_result":
       return "Run interrupted";
     case "error":
-      return item.failure.class === "usage_limit" ? "Usage limit reached" : "Provider error";
+      return providerFailureTitle(item.failure);
     case "handoff":
       return "Context handed off";
     case "fork":
