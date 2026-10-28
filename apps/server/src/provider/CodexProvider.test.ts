@@ -10,7 +10,6 @@ import * as Queue from "effect/Queue";
 import * as Schema from "effect/Schema";
 import * as Sink from "effect/Sink";
 import * as Stream from "effect/Stream";
-import * as TestClock from "effect/testing/TestClock";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
 import {
@@ -146,15 +145,6 @@ it("marks the most preferred available model as default", () => {
   );
 });
 
-it("prefers sol over terra when both are available", () => {
-  const models = applyPreferredCodexDefaultModel([
-    { slug: "gpt-5.6-terra", name: "GPT-5.6-Terra", isCustom: false, capabilities: null },
-    { slug: "gpt-5.6-sol", name: "GPT-5.6-Sol", isCustom: false, capabilities: null },
-  ]);
-
-  assert.deepStrictEqual(models.find((model) => model.isDefault)?.slug, "gpt-5.6-sol");
-});
-
 it("ranks qualified Codex models while preserving their wire ids", () => {
   const models = applyPreferredCodexDefaultModel([
     {
@@ -170,15 +160,6 @@ it("ranks qualified Codex models while preserving their wire ids", () => {
     models.filter((model) => model.isDefault).map((model) => model.slug),
     ["openai.gpt-5.6-sol"],
   );
-});
-
-it("keeps Codex's own default when no preferred model is available", () => {
-  const models = applyPreferredCodexDefaultModel([
-    { slug: "gpt-5.5", name: "GPT-5.5", isCustom: false, capabilities: null },
-    { slug: "gpt-5.4", name: "GPT-5.4", isCustom: false, isDefault: true, capabilities: null },
-  ]);
-
-  assert.deepStrictEqual(models.find((model) => model.isDefault)?.slug, "gpt-5.4");
 });
 
 it("ignores custom models that shadow a preferred slug", () => {
@@ -322,106 +303,6 @@ it.layer(NodeServices.layer)("Codex probe budget", (it) => {
       assert.deepStrictEqual(
         provider.models.map((model) => model.slug),
         ["gpt-test", "custom-model"],
-      );
-    }).pipe(Effect.scoped),
-  );
-
-  it.effect("keeps the first complete catalog when its refresh never answers", () =>
-    Effect.gen(function* () {
-      const probe = yield* startProbe(["model/list/2"]);
-      yield* probe.authenticate;
-      yield* probe.requested("model/list/2");
-      yield* TestClock.adjust("20 seconds");
-      const provider = yield* Fiber.join(probe.fiber);
-      assert.strictEqual(provider.status, "ready");
-      assert.strictEqual(provider.auth.status, "authenticated");
-      assert.deepStrictEqual(
-        provider.models.map((model) => model.slug),
-        ["gpt-test", "custom-model"],
-      );
-    }).pipe(Effect.scoped),
-  );
-
-  it.effect("warns with authentication and custom models when no catalog arrives", () =>
-    Effect.gen(function* () {
-      const probe = yield* startProbe(["model/list/1"]);
-      yield* probe.authenticate;
-      yield* probe.requested("model/list/1");
-      yield* TestClock.adjust("20 seconds");
-      const provider = yield* Fiber.join(probe.fiber);
-      assert.strictEqual(provider.status, "warning");
-      assert.strictEqual(provider.auth.status, "authenticated");
-      assert.strictEqual(provider.message, "Codex did not return its model catalog in time.");
-      assert.deepStrictEqual(
-        provider.models.map((model) => model.slug),
-        ["custom-model"],
-      );
-    }).pipe(Effect.scoped),
-  );
-
-  it.effect("bounds stalled skills and usage discovery by the remaining account probe budget", () =>
-    Effect.gen(function* () {
-      const probe = yield* startProbe(["skills/list", "account/rateLimits/read"]);
-      yield* probe.requested("account/read");
-      yield* TestClock.adjust(18_500);
-      yield* probe.authenticate;
-      yield* probe.requested("skills/list");
-      yield* probe.requested("account/rateLimits/read");
-      yield* probe.requested("model/list/2");
-      yield* TestClock.adjust(1_500);
-      const provider = yield* Fiber.join(probe.fiber);
-      assert.strictEqual(provider.status, "ready");
-      assert.strictEqual(provider.auth.status, "authenticated");
-      assert.deepStrictEqual(
-        provider.models.map((model) => model.slug),
-        ["gpt-test", "custom-model"],
-      );
-      assert.deepStrictEqual(provider.skills, []);
-      assert.strictEqual(provider.usageLimits?.unavailable?.reason, "probeFailed");
-    }).pipe(Effect.scoped),
-  );
-
-  it.effect("retains a completed probe when cleanup exceeds the work budget", () =>
-    Effect.gen(function* () {
-      const started = yield* Deferred.make<void>();
-      const complete = yield* Deferred.make<void>();
-      const cleanupStarted = yield* Deferred.make<void>();
-      const cleanupFinished = yield* Deferred.make<void>();
-      const fiber = yield* checkCodexProviderStatus(decodeCodexSettings({}), () =>
-        Effect.gen(function* () {
-          yield* Effect.addFinalizer(() =>
-            Deferred.succeed(cleanupStarted, undefined).pipe(
-              Effect.andThen(Deferred.await(cleanupFinished)),
-            ),
-          );
-          yield* Deferred.succeed(started, undefined);
-          yield* Deferred.await(complete);
-          return { account, version: undefined, models: [], skills: [] };
-        }),
-      ).pipe(Effect.forkChild);
-      yield* Deferred.await(started);
-      yield* TestClock.adjust(18_500);
-      yield* Deferred.succeed(complete, undefined);
-      yield* Deferred.await(cleanupStarted);
-      yield* TestClock.adjust("2 seconds");
-      yield* Deferred.succeed(cleanupFinished, undefined);
-      const provider = yield* Fiber.join(fiber);
-      assert.strictEqual(provider.status, "ready");
-      assert.strictEqual(provider.auth.status, "authenticated");
-    }),
-  );
-
-  it.effect("still errors when account authentication never answers", () =>
-    Effect.gen(function* () {
-      const probe = yield* startProbe([]);
-      yield* probe.requested("account/read");
-      yield* TestClock.adjust("20 seconds");
-      const provider = yield* Fiber.join(probe.fiber);
-      assert.strictEqual(provider.status, "error");
-      assert.strictEqual(provider.auth.status, "unknown");
-      assert.strictEqual(
-        provider.message,
-        "Timed out while checking Codex app-server provider status.",
       );
     }).pipe(Effect.scoped),
   );

@@ -13,12 +13,18 @@ export function providerFailureTitle(failure: {
   return failure.code === "model_cooldown" ? "Temporarily rate limited" : "Usage limit reached";
 }
 
+type ErrorTurnItem = Extract<OrchestrationV2TurnItem, { type: "error" }>;
+/** Only error items are read, so callers may pass items stripped of other fields. */
+type FailureScanTurnItem =
+  | ErrorTurnItem
+  | { readonly type: Exclude<OrchestrationV2TurnItem["type"], "error"> };
+
 export function latestRootProviderFailure(
   run: OrchestrationV2Run | null,
-  turnItems: ReadonlyArray<OrchestrationV2TurnItem>,
+  turnItems: ReadonlyArray<FailureScanTurnItem>,
 ): OrchestrationV2ProviderFailure | null {
   if (run?.status !== "failed") return null;
-  let latest: Extract<OrchestrationV2TurnItem, { type: "error" }> | null = null;
+  let latest: ErrorTurnItem | null = null;
   for (const item of turnItems) {
     if (
       item.type !== "error" ||
@@ -49,9 +55,8 @@ export function threadErrorSummary(
     usageLimitResetAt:
       currentFailure?.class === "usage_limit" ? (currentFailure.resetAt ?? null) : null,
     lastError: sessionError ?? failure?.message ?? null,
-    lastErrorClass:
-      sessionError !== null && sessionError !== failure?.message ? null : (failure?.class ?? null),
-    ...(currentFailure?.code === "model_cooldown" ? { lastErrorCode: currentFailure.code } : {}),
+    lastErrorClass: currentFailure?.class ?? null,
+    lastErrorCode: currentFailure?.code ?? null,
   };
 }
 
@@ -67,12 +72,7 @@ export function latestExecutedRun(
   return latest;
 }
 
-/**
- * Ordinals follow submission, but a run can start ahead of a held queue (a
- * restart continuation, or a message sent while the queue is held), so a queued
- * run resumed later can have a lower ordinal than one that already ended. An
- * unfinished run is the latest.
- */
+/** Held queues can execute out of ordinal order; unfinished runs count as latest. */
 export function runRanAfter(
   run: Pick<OrchestrationV2Run, "ordinal" | "completedAt">,
   other: Pick<OrchestrationV2Run, "ordinal" | "completedAt">,
@@ -86,7 +86,7 @@ export function runRanAfter(
 
 export function usageLimitBlockedRun(
   runs: ReadonlyArray<OrchestrationV2Run>,
-  turnItems: ReadonlyArray<OrchestrationV2TurnItem>,
+  turnItems: ReadonlyArray<FailureScanTurnItem>,
   sessionError: string | null,
 ): OrchestrationV2Run | null {
   const executed = latestExecutedRun(runs);
@@ -95,14 +95,10 @@ export function usageLimitBlockedRun(
   return summary.lastErrorClass === "usage_limit" ? executed : null;
 }
 
-/**
- * That limited run, when newer runs were queued or cancelled before starting.
- * Callers that treat the highest-ordinal run as the thread outcome would
- * otherwise hide the limit.
- */
+/** Retains a limited run's outcome when higher-ordinal runs never started. */
 export function usageLimitRunPresentedAsLatest(
   runs: ReadonlyArray<OrchestrationV2Run>,
-  turnItems: ReadonlyArray<OrchestrationV2TurnItem>,
+  turnItems: ReadonlyArray<FailureScanTurnItem>,
   sessionError: string | null,
 ): OrchestrationV2Run | null {
   const blocked = usageLimitBlockedRun(runs, turnItems, sessionError);

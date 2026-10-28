@@ -27,7 +27,7 @@ describe("provider cooldown presentation", () => {
 
   it("drops cooldown metadata when the session reports another failure", () => {
     const summary = threadErrorSummary(cooldown, "Connection closed");
-    expect(summary.lastErrorCode).toBeUndefined();
+    expect(summary.lastErrorCode).toBeNull();
     expect(summary.usageLimitResetAt).toBeNull();
     expect(
       providerFailureTitle({ class: summary.lastErrorClass, code: summary.lastErrorCode }),
