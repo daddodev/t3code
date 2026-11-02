@@ -25,24 +25,24 @@
       mkCodex =
         pkgs:
         let
-          codexVersion = "0.165.0";
+          codexVersion = "0.166.0";
           codexRelease =
             {
               x86_64-linux = {
                 url = "https://github.com/openai/codex/releases/download/rust-v${codexVersion}/codex-package-x86_64-unknown-linux-musl.tar.gz";
-                hash = "sha256-6XxEY9fxRmkqlV17DhyM9I+XzU1hbNRcXcqy6Nl0MxY=";
+                hash = "sha256-HUSyi8SsmTfX01MiZLqmilB842SVag1Ou4VvMxze4lQ=";
               };
               aarch64-linux = {
                 url = "https://github.com/openai/codex/releases/download/rust-v${codexVersion}/codex-package-aarch64-unknown-linux-musl.tar.gz";
-                hash = "sha256-yLKET971dJhXLblgNErujINs6fdcIDN52gqcOjNPw7c=";
+                hash = "sha256-eCG3fdouYoP7H2PzFlF3onHaiDPoV89nPGyhyds7/MY=";
               };
               x86_64-darwin = {
                 url = "https://github.com/openai/codex/releases/download/rust-v${codexVersion}/codex-package-x86_64-apple-darwin.tar.gz";
-                hash = "sha256-eS7KsFlgBr2fKGQwsnkKpIf9QPyi81HKMTrYWZFyAiY=";
+                hash = "sha256-HLZWkCML5ZgsZUuiZV46O1lNzpxVt4Dni/3+/4Kdetk=";
               };
               aarch64-darwin = {
                 url = "https://github.com/openai/codex/releases/download/rust-v${codexVersion}/codex-package-aarch64-apple-darwin.tar.gz";
-                hash = "sha256-NNEjhNkPjgmwuauqvyoKwCpSCTsTFQSuryghB/VKRLI=";
+                hash = "sha256-VaRAy1eflwq+fHmrGB5UsOpMQZvpnzM7vYaO66ycIfA=";
               };
             }
             .${pkgs.stdenv.hostPlatform.system};
@@ -69,24 +69,24 @@
       mkClaude =
         pkgs:
         let
-          claudeVersion = "2.1.312";
+          claudeVersion = "2.1.316";
           claudeRelease =
             {
               x86_64-linux = {
                 url = "https://downloads.claude.ai/claude-code-releases/${claudeVersion}/linux-x64/claude";
-                hash = "sha256-T0F4zkHYPiM0Hr+67NvPjqa/e66gaQAlq+Se7sOl0B0=";
+                hash = "sha256-/RPHAAD+w/IRbfvLthISELSikyi/DkYhClndWUpn2CQ=";
               };
               aarch64-linux = {
                 url = "https://downloads.claude.ai/claude-code-releases/${claudeVersion}/linux-arm64/claude";
-                hash = "sha256-3EryiRdFXgCdJnBLgqQ4NToGFJ6CW2zfeCkIstKGYfU=";
+                hash = "sha256-Vc244WLRkEMmlupUAQ4Pyi4Y0G+npxJ/1WO5/9TyJiQ=";
               };
               x86_64-darwin = {
                 url = "https://downloads.claude.ai/claude-code-releases/${claudeVersion}/darwin-x64/claude";
-                hash = "sha256-lTR3DhYs/W45MB2at3Wv/OIU3wMqaEhAhb26uWan+M8=";
+                hash = "sha256-ID0i+6/aufawzali7Fc+MquXCJTGOx37BAk3jyi5w0Q=";
               };
               aarch64-darwin = {
                 url = "https://downloads.claude.ai/claude-code-releases/${claudeVersion}/darwin-arm64/claude";
-                hash = "sha256-a17GkRleVRsCxB3599cj9Oph6qA8LfkKzv43NvGutiA=";
+                hash = "sha256-ZMMn6SssXg94wKmAxaUYEh4fDRQMp3HKXdRIjRotyz8=";
               };
             }
             .${pkgs.stdenv.hostPlatform.system};
