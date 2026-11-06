@@ -69,24 +69,24 @@
       mkClaude =
         pkgs:
         let
-          claudeVersion = "2.1.316";
+          claudeVersion = "2.1.318";
           claudeRelease =
             {
               x86_64-linux = {
                 url = "https://downloads.claude.ai/claude-code-releases/${claudeVersion}/linux-x64/claude";
-                hash = "sha256-/RPHAAD+w/IRbfvLthISELSikyi/DkYhClndWUpn2CQ=";
+                hash = "sha256-cIx3sgTbMAhv9vHtNFd72gPhvnTO2AVXy/e1Qknr8L0=";
               };
               aarch64-linux = {
                 url = "https://downloads.claude.ai/claude-code-releases/${claudeVersion}/linux-arm64/claude";
-                hash = "sha256-Vc244WLRkEMmlupUAQ4Pyi4Y0G+npxJ/1WO5/9TyJiQ=";
+                hash = "sha256-U6DX4hnXsIBOy6XbwAJ0Xon3hsyUbS3oWmRw1bLR+wY=";
               };
               x86_64-darwin = {
                 url = "https://downloads.claude.ai/claude-code-releases/${claudeVersion}/darwin-x64/claude";
-                hash = "sha256-ID0i+6/aufawzali7Fc+MquXCJTGOx37BAk3jyi5w0Q=";
+                hash = "sha256-7pyFd6Uoqo76R4v1UrF++kC7WKpJgdKRPBPTg6TUCaQ=";
               };
               aarch64-darwin = {
                 url = "https://downloads.claude.ai/claude-code-releases/${claudeVersion}/darwin-arm64/claude";
-                hash = "sha256-ZMMn6SssXg94wKmAxaUYEh4fDRQMp3HKXdRIjRotyz8=";
+                hash = "sha256-Z3oup79XbO3SDhkdlzkU7YpBeW9TpjsZIzgd3E1bXn0=";
               };
             }
             .${pkgs.stdenv.hostPlatform.system};

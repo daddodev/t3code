@@ -575,8 +575,7 @@ const probeCodexAppServerProvider = Effect.fn("probeCodexAppServerProvider")(fun
       // usage this probe" rather than costing the account and models.
       // Custom providers can run without an account, but this RPC requires ChatGPT auth.
       input.skipNativeUsage || accountResponse.account?.type !== "chatgpt"
-        ? // @effect-diagnostics-next-line effectSucceedWithVoid:off - This optional result requires undefined, not the wider void type.
-          Effect.succeed(undefined)
+        ? Effect.undefined
         : withCodexDiscoveryDeadline(
             client.request("account/rateLimits/read", null),
             deadlineMs,
